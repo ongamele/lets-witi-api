@@ -5,11 +5,7 @@ module.exports = {
 
   Mutation: {
     async face() {
-      AWS.config.update({
-        accessKeyId: "AKIAQ3EGWT7BSVYIPOFL",
-        secretAccessKey: "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",
-        region: "eu-west-2",
-      });
+      /* 
 
       // Create an instance of the Rekognition service
       const rekognition = new AWS.Rekognition();
@@ -72,7 +68,7 @@ module.exports = {
         } catch (error) {
           console.error("Error:", error);
         }
-      })();
+      })();*/
     },
   },
 };
