@@ -1,21 +1,7 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const { UserInputError } = require("apollo-server-express");
-const { parse, join } = require("path");
-const { createWriteStream } = require("fs");
-
-const UserModel = require("../../models/User");
-
-const msRest = require("@azure/ms-rest-js");
-const Face = require("@azure/cognitiveservices-face");
-
-const {
-  validateRegisterInput,
-  validateLoginInput,
-} = require("../../util/validators");
+const AWS = require("aws-sdk");
 const User = require("../../models/User");
 const { SECRETE_KEY } = require("../../config");
-const { GraphQLInt } = require("graphql");
+const { ACCESS_KEY } = require("../../config");
 
 module.exports = {
   Query: {
@@ -71,23 +57,88 @@ module.exports = {
 
     async updateFileNames(
       _,
-      { updateFileNamesInput: { selfieFineName, idFileName } }
+      { updateFileNamesInput: { idNumber, selfieFileName, idFileName } }
     ) {
-      // const { firstName, lastName, idNumber, phoneNumber } = args;
-      const user = await User.findOne({ idNumber });
-      User.findOneAndUpdate(
-        { idNumber: idNumber },
-        { firstName: firstName, lastName: lastName, phoneNumber: phoneNumber },
-        null,
-        function (err, docs) {
-          if (err) {
-            console.log(err);
-          } else {
-            //return user;
+      AWS.config.update({
+        accessKeyId: ACCESS_KEY,
+        secretAccessKey: SECRETE_KEY,
+        region: "eu-west-2",
+      });
+
+      // Create an instance of the Rekognition service
+      const rekognition = new AWS.Rekognition();
+
+      // Function to compare faces in two images
+      async function compareFaces(image1Buffer, image2Buffer) {
+        const params = {
+          SourceImage: {
+            Bytes: image1Buffer,
+          },
+          TargetImage: {
+            Bytes: image2Buffer,
+          },
+          SimilarityThreshold: 90, // Adjust similarity threshold as needed
+        };
+
+        try {
+          const response = await rekognition.compareFaces(params).promise();
+          return response;
+        } catch (error) {
+          console.error("Error comparing faces:", error);
+          throw error;
+        }
+      }
+
+      try {
+        // Dynamic import for fetch
+        const fetch = await import("node-fetch");
+
+        // Supabase image URLs
+        const imageUrl1 = `https://vlxkgewzbkitgpipqpst.supabase.co/storage/v1/object/public/witi-bucket/selfies/${selfieFileName}`;
+        const imageUrl2 = `https://vlxkgewzbkitgpipqpst.supabase.co/storage/v1/object/public/witi-bucket/ids/${idFileName}`;
+
+        console.log("Image1 >>>>>>>>>>>>>>>> ", imageUrl1);
+        console.log("Image2 >>>>>>>>>>>>>>>> ", imageUrl2);
+
+        // Function to fetch image from Supabase URL and convert it into a buffer
+        async function fetchImage(url) {
+          try {
+            const response = await fetch.default(url);
+            const buffer = await response.buffer();
+            return buffer;
+          } catch (error) {
+            console.error("Error fetching image:", error);
+            throw error;
           }
         }
-      );
-      return user;
+
+        // Fetch images and convert to buffers
+        const imageBuffer1 = await fetchImage(imageUrl1);
+        const imageBuffer2 = await fetchImage(imageUrl2);
+
+        // Compare faces
+        const comparisonResult = await compareFaces(imageBuffer1, imageBuffer2);
+
+        let result = {};
+
+        // Check if there are FaceMatches and if Similarity is present and true
+        if (
+          comparisonResult.FaceMatches.length > 0 &&
+          comparisonResult.FaceMatches[0].Similarity
+        ) {
+          result.similarity = true;
+          result.score = comparisonResult.FaceMatches[0].Similarity;
+        } else {
+          result.similarity = false;
+          result.score = null;
+        }
+        console.log("Face comparison result:", comparisonResult);
+
+        return result;
+      } catch (error) {
+        console.error("Error:", error);
+        return "No face";
+      }
     },
   },
 };

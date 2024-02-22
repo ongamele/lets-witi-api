@@ -33,8 +33,14 @@ module.exports = gql`
   }
 
   input UpdateFileNamesInput {
+    idNumber: String!
     selfieFileName: String!
     idFileName: String!
+  }
+
+  type VerificationResult {
+    similarity: Boolean
+    score: Float
   }
 
   type Query {
@@ -44,7 +50,9 @@ module.exports = gql`
     createUser(registerInput: RegisterInput): User!
     addFace(selfieFileName: String!, idFileName: String!): String
     login(faceImage: String!): User
-    updateFileNames(updateFileNamesInput: UpdateFileNamesInput): String
+    updateFileNames(
+      updateFileNamesInput: UpdateFileNamesInput
+    ): VerificationResult
     face: String
   }
 `;
