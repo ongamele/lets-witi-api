@@ -77,7 +77,7 @@ module.exports = {
           TargetImage: {
             Bytes: image2Buffer,
           },
-          SimilarityThreshold: 90, // Adjust similarity threshold as needed
+          SimilarityThreshold: 40, // Adjust similarity threshold as needed
         };
 
         try {
